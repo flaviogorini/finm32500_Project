@@ -1,66 +1,127 @@
-import yfinance as yf
 import pandas as pd
+from my_alpaca import AlpacaAPI
 
-from models import MarketData
+# Class to load asset prices
 
-class NVDALoader:
+class DataLoader:
     
-    # Class to load price data for the NVDA stock
+    # Class to load asset prices
 
-    def __init__(self, period):
-        """ Initializes the NVDA data loader."""
-        self.symbol = 'NVDA'
-        self.period = period
+    def __init__(self, symbol: str, days: int, list_of_symbols: list | None = None):
+        """ Initializes the price data loader."""
+        self.symbol = symbol
+        self.days = days
+        self.list_of_symbols = list_of_symbols
 
     def download_prices(self):
         
-        """ Downloads historical intraday price data for NVDA stock. """
+        """ Downloads historical intraday price data for the specified symbol and period or list of symbols."""
 
-        # Download ticker data using yfinance
-        nvda_data = yf.download(tickers=self.symbol, period=self.period, interval='1m', auto_adjust=True)
-        # Save to CSV
-        nvda_data.to_csv(f"data/{self.symbol}_data.csv")
+        # Download data using alpaca API
+        api = AlpacaAPI()
+        if self.list_of_symbols is None:
+            df = api.get_minute_bars(self.symbol, days=self.days)
+            # check if dataframe is empty
+            if df.empty:
+                print(f"No data downloaded for {self.symbol}.")
+                return
+            
+            # need to change crypto symbol format for saving
+            if "/" in self.symbol:
+                self.symbol = self.symbol.replace("/", "_")
 
-    def clean_data(self):
+            # Save to CSV
+            df.to_csv(f"data/{self.symbol}_data.csv")
+        else:
+            for sym in self.list_of_symbols:
+                
+                df = api.get_minute_bars(sym, days=self.days)
+                
+                if df.empty:
+                    print(f"No data downloaded for {sym}.")
+                    continue
+                
+                # need to change crypto symbol format for saving
+                if "/" in sym:
+                    sym = sym.replace("/", "_")
+                
+                # Save to CSV
+                df.to_csv(f"data/{sym}_data.csv")
+
+    def load_data(self, symbol: str) -> pd.DataFrame:
         """
-        Cleans NVDA data from the csv file and returns a DataFrame.
-
+        Reads the CSV file for a symbol and returns a cleaned DataFrame.
+        Returns None if the file is missing or empty.
         """
-        csv_path = f"data/{self.symbol}_data.csv"
+        # adjust for crypto symbol format
+        if "/" in symbol:
+            csv_path = f"data/{symbol.replace('/', '_')}_data.csv"
+        else:
+            csv_path = f"data/{symbol}_data.csv"
 
-        # Define the columns we actually want
-        cols = ["Datetime", "Close", "High", "Low", "Open", "Volume"]
+        try:
+            price_data = pd.read_csv(csv_path, index_col="timestamp", parse_dates=True)
+        except FileNotFoundError:
+            print(f"[WARN] Missing CSV for {symbol}: {csv_path}. Skipping.")
+            return None
 
-        nvda_data = pd.read_csv(
-            csv_path,
-            skiprows=3,      # skip "Price", "Ticker", "Datetime" lines
-            header=None,     # we will provide our own column names
-            names=cols,
-        )
+        if price_data.empty:
+            print(f"[WARN] Empty DataFrame for {symbol}. Skipping.")
+            return None
 
-        # Parse datetime and set as index
-        nvda_data["Datetime"] = pd.to_datetime(nvda_data["Datetime"])
-        nvda_data = nvda_data.set_index("Datetime")
-
-        # Basic cleaning
-        nvda_data = nvda_data.dropna().drop_duplicates()
-        nvda_data = nvda_data.sort_index()
-
-        return nvda_data
-
-    def load_data(self):
-        """ Loads and cleans the NVDA data."""
-
-        self.download_prices()
-        nvda_data = self.clean_data()
-
-        return nvda_data
-
+        price_data = price_data.dropna().drop_duplicates().sort_index()
+        return price_data
 
 if __name__ == "__main__":
     # Example usage
-    period = "7d"  # last 7 days
-    loader = NVDALoader(period)
-    data = loader.load_data()
-    # print first 5 rows
-    print(data.head())
+    # Fixed stock and crypto universe
+    STOCK_UNIVERSE = [
+    # Mega-cap tech
+    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "NFLX",
+    # Semiconductors
+    "AMD", "QCOM", "INTC", "MU", "TSM", "ADI", "NXPI", "AMAT", "LRCX",
+    # Financials
+    "JPM", "BAC", "WFC", "C", "GS", "MS", "BLK", "SCHW", "AXP",
+    # Energy
+    "XOM", "CVX", "COP", "SLB", "EOG", "PSX",
+    # Industrials
+    "UNP", "CAT", "DE", "GE", "LMT", "NOC", "BA", "MMM", "ETN",
+    # Healthcare
+    "UNH", "JNJ", "PFE", "ABBV", "MRK", "LLY", "TMO", "BMY", "GILD",
+    # Consumer staples
+    "PG", "KO", "PEP", "WMT", "COST", "MDLZ", "MO", "PM",
+    # Consumer discretionary
+    "HD", "MCD", "SBUX", "LOW", "TGT", "NKE", "TJX",
+    # Communication services
+    "VZ", "T", "TMUS", "DIS", "CMCSA",
+    # Real estate
+    "PLD", "AMT", "EQIX", "O", "SPG",
+    # Utilities
+    "NEE", "DUK", "SO", "EXC", "AEP",
+    # Materials
+    "LIN", "SHW", "FCX", "NUE",
+    # Software + cloud + cyber
+    "CRM", "ADBE", "INTU", "NOW", "PANW", "CRWD", "SNOW", "DDOG",
+    # Payment processors
+    "V", "MA", "PYPL", "SQ",
+    # EV & automotive
+    "F", "GM", "RIVN", "LCID",
+    # Airlines & travel
+    "DAL", "AAL", "UAL", "LUV", "MAR", "BKNG"
+]
+    CRYPTO_UNIVERSE = [
+        "BTC/USD",
+        "ETH/USD",
+        "SOL/USD",
+        "DOGE/USD",
+        "LTC/USD",
+        "BCH/USD",
+        "ADA/USD",
+        "MATIC/USD",
+        "DOT/USD",
+        "AVAX/USD"
+    ]
+    UNIVERSE = STOCK_UNIVERSE + CRYPTO_UNIVERSE
+    period = 15  # days
+    loader = DataLoader(symbol="", days=period, list_of_symbols=UNIVERSE)
+    loader.download_prices()
