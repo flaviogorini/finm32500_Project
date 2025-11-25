@@ -264,44 +264,54 @@ def run_backtest():
     loader = DataLoader(symbol="", days=5, list_of_symbols=UNIVERSE)
 
     strategies_by_symbol: dict[str, list] = {}
+    all_frames: list[pd.DataFrame] = []
 
+    # 3) For each symbol: load data, build strategies, and stash df for the global timeline
     for sym in UNIVERSE:
         df = loader.load_data(sym)
+
         if df is None:
             continue  # missing or empty data, skip this symbol
 
-        # Instantiate one set of strategies per symbol
-        rsi     = RSI(period=3, overbought=80.0, oversold=20.0)
-        bb      = BB(period=20, std=2.0)
-        zscore  = Zscore(period=60, std=2.0)
+        # just in case: ensure symbol column is correct
+        if "symbol" not in df.columns:
+            df = df.copy()
+            df["symbol"] = sym
 
-        # Note: we only need the symbol key here; DataGateway will take df later
-        strategies_by_symbol[sym] = [rsi, bb, zscore]
+        all_frames.append(df)
 
-    if not strategies_by_symbol:
+        # One set of strategies per symbol, exactly as before
+        rsi = RSI(period=3, overbought=80.0, oversold=20.0)
+        bb  = BB(period=20, std=2.0)
+        zs  = Zscore(period=60, std=2.0)
+
+        strategies_by_symbol[sym] = [rsi, bb, zs]
+
+    if not strategies_by_symbol or not all_frames:
         print("No symbols with usable data. Exiting.")
         return
 
-    # 3) Create engine
+    # 4) Build ONE combined time-ordered DataFrame of all ticks
+    all_data = pd.concat(all_frames)
+    all_data = all_data.sort_index()  # sort by timestamp
+
+    # 5) Create engine
     engine = BacktestEngine(
         strategies_by_symbol=strategies_by_symbol,
         initial_capital=100_000.0,
-        notional_frac_per_trade=0.05,
+        notional_frac_per_trade=0.02,
     )
 
-    # 4) Drive engine symbol by symbol
-    for sym in strategies_by_symbol.keys():
-        df = loader.load_data(sym)
-        if df is None:
-            continue
+    gateway = DataGateway(all_data)  # your tick generator
 
-        gateway = DataGateway(df)  # your tick generator
-        for tick in gateway.stream_data():
-            engine.on_tick(tick)
-            # Record cash for later analysis
-            engine.history.append((tick.timestamp,engine.cash))
+    # 6) Drive engine once over the *global* tick stream
 
-    # 5) Finalize and print summary
+    for tick in gateway.stream_data():
+        engine.on_tick(tick)
+        # record cash after each tick
+        engine.history.append((tick.timestamp, engine.cash))
+
+    # 7) Finalize and print summary
     engine.finalize()
     engine.summary()
 
