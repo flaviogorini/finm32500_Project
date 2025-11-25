@@ -4,7 +4,7 @@ from models import MarketData, Strategy
 from data_loader import DataLoader
 from data_stream import DataGateway
 
-
+# TODO: need to adjust the strategies for the fact that we cannot short crypto assets
 
 class RSI(Strategy):
 
