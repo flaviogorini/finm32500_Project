@@ -1,4 +1,6 @@
 from __future__ import annotations
+import os
+import csv
 
 from models import MarketData, Strategy
 from my_alpaca import AlpacaAPI
@@ -31,6 +33,9 @@ class LiveTradingEngine:
         self.alpaca = alpaca
         self.strategies_by_symbol = strategies_by_symbol
         self.notional_frac_per_trade = notional_frac_per_trade
+        # persistent order log
+        os.makedirs("output", exist_ok=True)
+        self.order_log_path = "output/live_order_updates.csv"
 
     @staticmethod
     def _direction_from_signals(signals: list[tuple]) -> int:
@@ -182,6 +187,7 @@ class LiveTradingEngine:
 
         # 2) Get *current* position from Alpaca
         pos = self._get_position_side(symbol)  # >0 long, <0 short, 0 flat
+        is_crypto = "/" in symbol
 
         # ---------- ENTRY / EXIT LOGIC (same as backtest) ----------
         #
@@ -194,9 +200,9 @@ class LiveTradingEngine:
         #     >=2 BUY votes -> close short
 
         if pos == 0:
-            if num_buy >= 2 and num_sell == 0:
+            if num_buy >= 2 and num_sell == 0: # stocks or crypto
                 self._open_position(symbol, "buy", price, ts)
-            elif num_sell >= 2 and num_buy == 0:
+            elif (not is_crypto) and num_sell >= 2 and num_buy == 0: # cannot short crypto
                 self._open_position(symbol, "sell", price, ts)
             return
 
@@ -226,6 +232,28 @@ class LiveTradingEngine:
             avg_price = getattr(order, "filled_avg_price", None) if order else None
             status = getattr(order, "status", None) if order else None
             oid = getattr(order, "id", None) if order else None
+            submitted_at = getattr(order, "submitted_at", None) if order else None
+            filled_at    = getattr(order, "filled_at", None) if order else None
+
+            record = {
+                "event": event,
+                "order_id": oid,
+                "symbol": symbol,
+                "side": side,
+                "status": status,
+                "filled_quantity": filled_qty,
+                "avg_price": avg_price,
+                "submitted_at": submitted_at,
+                "filled_at": filled_at,
+            }
+
+            # Append to CSV log
+            file_exists = os.path.isfile(self.order_log_path)
+            with open(self.order_log_path, mode="a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=record.keys())
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(record)
 
             print(
                 f"[ORDER UPDATE] event={event} "
