@@ -8,15 +8,17 @@ class DataGateway:
     """
 
     def __init__(self, df: pd.DataFrame):
-        self._df = df  
-        self._symbol = df['symbol'].iloc[0] if 'symbol' in df.columns else 'UNKNOWN'
-    
+        self._df = df.sort_index() # ensure sorted by timestamp
+        
     def stream_data(self):
         """ Generator that yields one MarketDataPoint at a time."""
         for index, row in self._df.iterrows():
+            # per row symbol extraction
+            symbol = row['symbol'] if 'symbol' in row.index else None
+            
             yield MarketData(
                 timestamp=index,
-                symbol=self._symbol,
+                symbol=symbol,
                 close_price=row['close'],
                 open_price=row['open'],
                 high_price=row['high'],
