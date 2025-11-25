@@ -48,10 +48,11 @@ class DataLoader:
                 # Save to CSV
                 df.to_csv(f"data/{sym}_data.csv")
 
-    def load_data(self, symbol: str) -> pd.DataFrame:
+    def load_data(self, symbol: str) -> pd.DataFrame | None:
         """
         Reads the CSV file for a symbol and returns a cleaned DataFrame.
         Returns None if the file is missing or empty.
+        Keeps a 'symbol' column for the multi-asset backtest
         """
         # adjust for crypto symbol format
         if "/" in symbol:
@@ -70,6 +71,11 @@ class DataLoader:
             return None
 
         price_data = price_data.dropna().drop_duplicates().sort_index()
+
+        # Add symbol column if missing
+        if 'symbol' not in price_data.columns:
+            price_data['symbol'] = symbol
+
         return price_data
 
 if __name__ == "__main__":
@@ -122,6 +128,6 @@ if __name__ == "__main__":
         "AVAX/USD"
     ]
     UNIVERSE = STOCK_UNIVERSE + CRYPTO_UNIVERSE
-    period = 15  # days
+    period = 5  # days
     loader = DataLoader(symbol="", days=period, list_of_symbols=UNIVERSE)
     loader.download_prices()
