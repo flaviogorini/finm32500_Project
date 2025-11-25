@@ -126,13 +126,22 @@ class LiveTradingEngine:
         if pos is None:
             print(f"[LIVE] {ts} {symbol}: no position to close.")
             return
+        
+        is_crypto = "/" in symbol
 
+        # let alpaca handle qty formatting
+        if is_crypto:
+            resp = self.alpaca.close_position(symbol)
+            oid = getattr(resp, "id", None)
+            print(f"[LIVE] {ts} CLOSE {symbol}: market close (order_id={oid})")
+            return
+        
+        # keep old logic for stocks
         qty = float(pos.qty)
         if qty <= 0:
             print(f"[LIVE] {ts} {symbol}: position qty={qty}, nothing to close.")
             return
 
-        is_crypto = "/" in symbol
         if not is_crypto:
             qty = int(qty)
 
