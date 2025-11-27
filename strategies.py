@@ -319,6 +319,8 @@ class Zscore(Strategy):
         
         return output
 
+# --- example usage for a single symbol ---
+
 if __name__ == "__main__":
     df = pd.read_csv("data/NVDA_data.csv", index_col="timestamp", parse_dates=True)
     gateway = DataGateway(df)
