@@ -84,9 +84,19 @@ class AlpacaAPI:
         return self.trading.get_all_positions()
 
     def get_position(self, symbol: str):
-        """Return Position object for symbol or None if not open."""
+        """
+        Return Position object for symbol or None if not open.
+        Handles both stock and crypto symbols.
+        """
+        # Normalize symbol for crypto
+        if "/" in symbol:
+            base, quote = symbol.split("/", 1)
+            norm_symbol = f"{base}{quote}"
+        else:
+            norm_symbol = symbol
+
         try:
-            return self.trading.get_open_position(symbol)
+            return self.trading.get_open_position(norm_symbol)
         except Exception:
             # Alpaca raises if no position
             return None
