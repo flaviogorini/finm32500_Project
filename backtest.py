@@ -207,6 +207,8 @@ class BacktestEngine:
         print(f"Realized P&L    : {realized_pnl:,.2f}")
         print(f"# trades        : {len(self.trades)}")
 
+# --------- backtest runner ----------
+# this assumes we already have the data dowloaded as CSVs in the data/ folder
 
 def run_backtest():
     
