@@ -209,6 +209,7 @@ class BacktestEngine:
 
 # --------- backtest runner ----------
 # this assumes we already have the data dowloaded as CSVs in the data/ folder
+# please use data_loader.py to download data if you don't have it yet
 
 def run_backtest():
     
