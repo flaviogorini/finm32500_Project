@@ -132,8 +132,16 @@ class AlpacaAPI:
 
     def close_position(self, symbol: str):
         """Close position in a given symbol at market."""
+
+        # Normalize symbol for crypto
+        if "/" in symbol:
+            base, quote = symbol.split("/", 1)
+            norm_symbol = f"{base}{quote}"
+        else:
+            norm_symbol = symbol
+
         try:
-            return self.trading.close_position(symbol)
+            return self.trading.close_position(norm_symbol)
         except Exception as e:
             print(f"[WARN] close_position({symbol}) failed: {e}")
             return None
