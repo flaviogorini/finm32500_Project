@@ -123,7 +123,6 @@ async def main() -> None:
             return
         # defensive: only trade what we have strategies for
         if tick.symbol in strategies_by_symbol:
-           print(f"[STOCK] {tick.timestamp} {tick.symbol} close={tick.close_price}") # TODO: remove this later
            try:
                engine.on_tick(tick)
            except Exception as e:
@@ -134,7 +133,6 @@ async def main() -> None:
         if tick is None:
             return
         if tick.symbol in strategies_by_symbol:
-            print(f"[CRYPTO] {tick.timestamp} {tick.symbol} close={tick.close_price}") # TODO: remove this later
             try:
                 engine.on_tick(tick)
             except Exception as e:
